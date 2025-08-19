@@ -1,0 +1,62 @@
+{
+  "name": "create-project",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "deploy:mainnet": "hardhat run --network mainnet scripts/deploy-bridge-mainnet.ts",
+    "verify:mainnet": "hardhat verify --network mainnet"
+  },
+  "dependencies": {
+    "@ethersproject/providers": "^5.8.0",
+    "@openzeppelin/contracts": "^4.9.6",
+    "@walletconnect/ethereum-provider": "^2.21.8",
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "lucide-react": "^0.525.0",
+    "next": "14.0.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "web3": "^4.16.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.13",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+    "@nomicfoundation/hardhat-verify": "^2.1.1",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
+    "@typechain/ethers-v5": "^10.2.1",
+    "@typechain/hardhat": "^6.1.6",
+    "@types/chai": "^4.3.20",
+    "@types/minimatch": "^6.0.0",
+    "@types/mocha": "^9.1.1",
+    "@types/react": "19.1.9",
+    "autoprefixer": "^10.0.1",
+    "chai": "^4.5.0",
+    "dotenv": "^17.2.1",
+    "ethers": "^5.8.0",
+    "hardhat": "^2.26.2",
+    "hardhat-gas-reporter": "^1.0.10",
+    "pino-pretty": "^13.1.1",
+    "postcss": "^8",
+    "solidity-coverage": "^0.8.16",
+    "tailwindcss": "^3.3.0",
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.8.3"
+  },
+  "description": "This project was generated from [create.xyz](https://create.xyz/).",
+  "main": "next.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "directories": {
+    "test": "test"
+  }
+}
