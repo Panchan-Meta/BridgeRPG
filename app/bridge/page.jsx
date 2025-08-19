@@ -58,6 +58,7 @@ export default function Page() {
   const PGIRLS_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_PGIRLS_CONTRACT_ADDRESS || process.env.PGIRLS_CONTRACT_ADDRESS || "";
 
   const PGIRLS_RPC_URL = process.env.NEXT_PUBLIC_PGIRLSCHAIN_RPC_URL || process.env.PGIRLSCHAIN_RPC_URL || "https://rpc.rahabpunkaholicgirls.com";
+  const PGIRLS_EXPLORER = process.env.NEXT_PUBLIC_PGIRLS_EXPLORER_URL || "https://explorer.rahpunkaholicgirls.com";
 
   const tokens = {
     ETH: { symbol: "ETH", network: "Ethereum", decimals: 18, chainId: ETH_CHAIN_ID, address: ethers.constants.AddressZero, bridgeAddress: ETH_BRIDGE_ADDRESS },
@@ -203,7 +204,7 @@ export default function Page() {
                 chainName: "PGirlsChain",
                 nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
                 rpcUrls: [PGIRLS_RPC_URL].filter(Boolean),
-                blockExplorerUrls: [],
+                blockExplorerUrls: [PGIRLS_EXPLORER].filter(Boolean),
               }],
             });
             return true;
@@ -260,7 +261,7 @@ export default function Page() {
               chainName: "PGirlsChain",
               nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
               rpcUrls: [PGIRLS_RPC_URL].filter(Boolean),
-              blockExplorerUrls: [],
+              blockExplorerUrls: [PGIRLS_EXPLORER].filter(Boolean),
             }],
           });
         } catch (addErr) {
@@ -430,7 +431,13 @@ export default function Page() {
         }
 
         await updateBalances(user);
-        setSuccess("Bridge request submitted. Waiting for relayer to send ETH.");
+        const burnLink = `${PGIRLS_EXPLORER}/tx/${burnTx.hash}`;
+        setSuccess(
+          <>
+            Bridge request submitted. Waiting for relayer to send ETH. PGirlsChain tx:{" "}
+            <a href={burnLink} target="_blank" rel="noopener noreferrer">{burnTx.hash}</a>
+          </>
+        );
         setAmount("0");
         return;
       }
@@ -472,15 +479,25 @@ export default function Page() {
         await ensureChainIOSAware(PGIRLS_CHAIN_ID);
         const signature = await signTypedData(pgSigner, user, nonce, amountWei.toString(), verifyingContract, Number(activeId));
 
+        let pgTxHash = "";
         if (RELAYER_URL) {
-          await axios.post(`${RELAYER_URL}/bridge-pgirls`, {
+          const resp = await axios.post(`${RELAYER_URL}/bridge-pgirls`, {
             user, amount: amountWei.toString(), nonce, signature,
             ethTxHash: sendTx.hash, srcChainId: ETH_CHAIN_ID, dstChainId: PGIRLS_CHAIN_ID,
           });
+          pgTxHash = resp?.data?.txHash || "";
         }
 
         await updateBalances(user);
-        setSuccess(`Bridge request submitted. ETH sent (tx: ${receipt.transactionHash}). Relayer will mint PGirls.`);
+        const explorerLink = pgTxHash ? `${PGIRLS_EXPLORER}/tx/${pgTxHash}` : "";
+        setSuccess(
+          <>
+            Bridge request submitted. ETH sent (tx: {receipt.transactionHash}).{" "}
+            {pgTxHash && (
+              <>PGirlsChain tx: <a href={explorerLink} target="_blank" rel="noopener noreferrer">{pgTxHash}</a></>
+            )}
+          </>
+        );
         setAmount("0");
         return;
       }
