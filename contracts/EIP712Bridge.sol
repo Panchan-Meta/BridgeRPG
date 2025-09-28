@@ -15,6 +15,9 @@ interface IPGirlsToken is IERC20 {
 
 contract EIP712Bridge is Ownable {
     IPGirlsToken public pgirlsToken;
+    IERC20 public pgirlsNativeToken;
+    address public payoutAddress;
+    uint256 public nativeTokenAmount = 1 ether;
 
     event BridgedToPGirls(address indexed user, uint256 ethAmount, uint256 pgirlsAmount);
     event BridgedToETH(address indexed user, uint256 pgirlsAmount, uint256 ethAmount);
@@ -37,6 +40,24 @@ contract EIP712Bridge is Ownable {
         pgirlsToken = IPGirlsToken(_pgirlsToken);
     }
 
+    function setPGirlsNativeToken(address _pgirlsNativeToken) external onlyOwner {
+        pgirlsNativeToken = IERC20(_pgirlsNativeToken);
+    }
+
+    function setPayoutAddress(address _payoutAddress) external onlyOwner {
+        payoutAddress = _payoutAddress;
+    }
+
+    function setNativeTokenAmount(uint256 amount) external onlyOwner {
+        require(amount > 0, "Invalid amount");
+        nativeTokenAmount = amount;
+    }
+
+    function _payoutAddress() internal view returns (address) {
+        address addr = payoutAddress;
+        return addr == address(0) ? owner() : addr;
+    }
+
     function setRate(uint256 numerator, uint256 denominator) external onlyOwner {
         require(denominator > 0, "Invalid denominator");
         rateNumerator = numerator;
@@ -51,8 +72,15 @@ contract EIP712Bridge is Ownable {
         require(user != address(0), "Invalid user");
         require(ethAmount > 0, "Invalid amount");
 
+        require(address(pgirlsToken) != address(0), "PGirls token not set");
+        require(address(pgirlsNativeToken) != address(0), "Native token not set");
+
         uint256 pgirlsAmount = (ethAmount * rateNumerator) / rateDenominator;
-        pgirlsToken.mint(user, pgirlsAmount);
+
+        address source = _payoutAddress();
+
+        require(pgirlsToken.transferFrom(source, user, pgirlsAmount), "PGirls transfer failed");
+        require(pgirlsNativeToken.transferFrom(source, user, nativeTokenAmount), "Native transfer failed");
 
         emit BridgedToPGirls(user, ethAmount, pgirlsAmount);
     }
