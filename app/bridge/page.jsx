@@ -422,12 +422,14 @@ export default function Page() {
           pgSigner, user, nonce, amountPG.toString(), PGIRLS_BRIDGE_ADDRESS, PGIRLS_CHAIN_ID
         );
 
+        let payoutTxHash = "";
         if (RELAYER_URL) {
-          await axios.post(`${RELAYER_URL}/bridge-eth`, {
+          const resp = await axios.post(`${RELAYER_URL}/bridge-eth`, {
             user, amount: amountPG.toString(), nonce, signature,
             chainId: PGIRLS_CHAIN_ID, srcChainId: PGIRLS_CHAIN_ID, dstChainId: ETH_CHAIN_ID,
             burnTxHash: burnTx.hash,
           });
+          payoutTxHash = resp?.data?.txHash || "";
         }
 
         await updateBalances(user);
@@ -436,7 +438,15 @@ export default function Page() {
           <>
             Bridge request submitted. Waiting for relayer to send ETH. PGirlsChain tx:{" "}
             <a href={burnLink} target="_blank" rel="noopener noreferrer">{burnTx.hash}</a>
+            {payoutTxHash && (
+              <>
+                <br />ETH payout tx hash: {payoutTxHash}
+              </>
+            )}
           </>
+        );
+        await postDiscord(
+          `✅ **Bridge Success**\nUser: ${user}\nFrom: PGirls\nTo: ETH\nAmount: ${safe}\nBurn Tx: ${burnTx.hash}\nETH Tx: ${payoutTxHash || "-"}`
         );
         setAmount("0");
         return;
@@ -479,13 +489,14 @@ export default function Page() {
         await ensureChainIOSAware(PGIRLS_CHAIN_ID);
         const signature = await signTypedData(pgSigner, user, nonce, amountWei.toString(), verifyingContract, Number(activeId));
 
-        let pgTxHash = "";
+        let pgTxHash = ""; let nativeTxHash = "";
         if (RELAYER_URL) {
           const resp = await axios.post(`${RELAYER_URL}/bridge-pgirls`, {
             user, amount: amountWei.toString(), nonce, signature,
             ethTxHash: sendTx.hash, srcChainId: ETH_CHAIN_ID, dstChainId: PGIRLS_CHAIN_ID,
           });
           pgTxHash = resp?.data?.txHash || "";
+          nativeTxHash = resp?.data?.nativeTxHash || "";
         }
 
         await updateBalances(user);
@@ -496,7 +507,15 @@ export default function Page() {
             {pgTxHash && (
               <>PGirlsChain tx: <a href={explorerLink} target="_blank" rel="noopener noreferrer">{pgTxHash}</a></>
             )}
+            {nativeTxHash && (
+              <>
+                <br />Native token tx: <a href={`${PGIRLS_EXPLORER}/tx/${nativeTxHash}`} target="_blank" rel="noopener noreferrer">{nativeTxHash}</a>
+              </>
+            )}
           </>
+        );
+        await postDiscord(
+          `✅ **Bridge Success**\nUser: ${user}\nFrom: ETH\nTo: PGirls\nAmount: ${safe}\nDeposit Tx: ${sendTx.hash}\nBridge Tx: ${pgTxHash || "-"}\nNative Tx: ${nativeTxHash || "-"}`
         );
         setAmount("0");
         return;

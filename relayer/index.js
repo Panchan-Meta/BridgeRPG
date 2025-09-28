@@ -13,14 +13,14 @@ app.use(express.json());
 // ---------- Provider / Wallet / Contract ----------
 const provider = new ethers.providers.JsonRpcProvider(process.env.PGIRLSCHAIN_RPC_URL);
 
-// Ethereum(L1) “Ç‚İ‘‚«Œ“—pƒvƒƒoƒCƒ_ & •¥‚¢o‚µEOA
+// Ethereum(L1) Ç‚İpvoC_ & oEOA
 const ethReadProvider = new ethers.providers.JsonRpcProvider(process.env.ETH_RPC_URL);
 const ethPayoutWallet = new ethers.Wallet(process.env.ETH_PAYOUT_PRIVATE_KEY, ethReadProvider);
 
-// PGirlsChain ‘¤‚ÌŠÇ—ƒEƒHƒŒƒbƒgiƒuƒŠƒbƒWMint/Burn—pj
+// PGirlsChain ÌŠÇ—EHbgiubWMint/Burnpj
 const wallet = new ethers.Wallet(process.env.PGIRLSCHAIN_PRIVATE_KEY, provider);
 
-// ABI “Ç‚İ‚İ
+// ABI Ç‚İ
 const abiPath = path.join(__dirname, "abi", "EIP712Bridge.json");
 const bridgeAbi = JSON.parse(fs.readFileSync(abiPath)).abi;
 const bridge = new ethers.Contract(
@@ -29,11 +29,11 @@ const bridge = new ethers.Contract(
   wallet
 );
 
-// nonce Ä—˜—p–h~
+// nonce Ä—ph~
 const usedNonces = new Set();
 
-// ---- Rate PGirls -> ETH (—á: 0.018 ETH / 1 PGirls) using integer ratio ----
-// ¦ amount ‚Í PGirls ‚ÌÅ¬’PˆÊ(10^decimals; ’Êí‚Í1e18)‚Å“n‚Á‚Ä‚­‚é‘O’ñ
+// ---- Rate PGirls -> ETH (: 0.018 ETH / 1 PGirls) using integer ratio ----
+//  amount  PGirls ÌÅP(10^decimals; Ê1e18)Å“nÄ‚O
 const RATE_NUM = ethers.BigNumber.from(process.env.RATE_NUM || "18");   // numerator
 const RATE_DEN = ethers.BigNumber.from(process.env.RATE_DEN || "1000"); // denominator
 
@@ -64,16 +64,19 @@ function fmt(num, decimals = 18) {
 }
 function safeAddr(a) { return ethers.utils.isAddress(a || "") ? a : ""; }
 
-function completedMsg({ user, from, to, amount, ethTxHash, relayerTx }) {
-  return (
+function completedMsg({ user, from, to, amount, ethTxHash, relayerTx, nativeTxHash }) {
+  let msg =
     `? Bridge Completed\n` +
     `User: ${user}\n` +
     `From: ${from}\n` +
     `To: ${to}\n` +
     `Amount: ${amount}\n` +
     `ETH TxHash: ${ethTxHash || "-"}\n` +
-    `Relayer TX: ${relayerTx || "-"}`
-  );
+    `Relayer TX: ${relayerTx || "-"}`;
+  if (nativeTxHash) {
+    msg += `\nNative Tx: ${nativeTxHash}`;
+  }
+  return msg;
 }
 function errorMsg({ user, from, to, amount, error }) {
   return (
@@ -137,7 +140,7 @@ app.post("/bridge-pgirls", async (req, res) => {
     const domain = {
       name: "PGirlsBridge",
       version: "1",
-      chainId: Number(process.env.CHAIN_ID), // PGirlsChain ‚Ì chainId
+      chainId: Number(process.env.CHAIN_ID), // PGirlsChain  chainId
       verifyingContract: process.env.PGIRLS_BRIDGE_CONTRACT_ADDRESS,
     };
     const types = {
@@ -157,8 +160,20 @@ app.post("/bridge-pgirls", async (req, res) => {
       return res.status(401).json({ error: msg });
     }
 
+    const nativeWei = bnAmount;
+
+    const relayerNativeBalance = await wallet.getBalance();
+    if (relayerNativeBalance.lt(nativeWei)) {
+      const msg = "Relayer wallet has insufficient native token";
+      await postDiscord(errorMsg({ user, from: "ETH", to: "PGirls", amount: fmt(bnAmount), error: msg }));
+      return res.status(402).json({ error: msg });
+    }
+
     const tx = await bridge.bridgeToPGirls(user, bnAmount);
     await tx.wait();
+
+    const nativeTx = await wallet.sendTransaction({ to: user, value: nativeWei });
+    await nativeTx.wait();
 
     usedNonces.add(bnNonce.toString());
 
@@ -169,11 +184,14 @@ app.post("/bridge-pgirls", async (req, res) => {
       amount: fmt(bnAmount, 18), // ETH amount
       ethTxHash,
       relayerTx: tx.hash, // PGirls mint tx
+      nativeTxHash: nativeTx.hash,
     });
     await postDiscord(content);
 
-    console.log(`? Minted PGirls to ${user} | amount=${bnAmount.toString()} | tx=${tx.hash}`);
-    res.json({ success: true, txHash: tx.hash });
+    console.log(
+      `? Minted PGirls to ${user} | amount=${bnAmount.toString()} | bridgeTx=${tx.hash} | nativeTx=${nativeTx.hash}`
+    );
+    res.json({ success: true, txHash: tx.hash, nativeTxHash: nativeTx.hash });
   } catch (err) {
     console.error("!! /bridge-pgirls error:", err);
     const msg = err?.message || String(err);
@@ -210,7 +228,7 @@ app.post("/bridge-eth", async (req, res) => {
       return res.status(409).json({ error: msg });
     }
 
-    // –¼ŒŸØichainId ‚ÍƒT[ƒoİ’è’l‚ÉŒÅ’è‚µAbody‚Ì chainId ‚Æ‚Í•Ê‚ÉŒŸØj
+    // ØichainId ÍƒT[oİ’lÉŒÅ’è‚µAbody chainId Æ‚Í•Ê‚ÉŒØj
     const expectedChainId = Number(process.env.CHAIN_ID);
     if (chainId !== undefined && Number(chainId) !== expectedChainId) {
       const msg = "Wrong chainId";
@@ -220,7 +238,7 @@ app.post("/bridge-eth", async (req, res) => {
     const domain = {
       name: "PGirlsBridge",
       version: "1",
-      chainId: expectedChainId, // PGirlsChain ‚Ì chainId
+      chainId: expectedChainId, // PGirlsChain  chainId
       verifyingContract: process.env.PGIRLS_BRIDGE_CONTRACT_ADDRESS,
     };
     const types = {
@@ -239,7 +257,7 @@ app.post("/bridge-eth", async (req, res) => {
       return res.status(403).json({ error: msg });
     }
 
-    // PGirls(wei) ¨ ETH(wei) ‚Ö‚Ì•ÏŠ·
+    // PGirls(wei)  ETH(wei) Ö‚Ì•ÏŠ
     const payoutWei = bnAmount.mul(RATE_NUM).div(RATE_DEN);
     if (payoutWei.lte(0)) {
       const msg = "amount too small";
@@ -247,7 +265,7 @@ app.post("/bridge-eth", async (req, res) => {
       return res.status(400).json({ error: msg });
     }
 
-    // •¥‚¢o‚µEOA‚Ìc‚ƒ`ƒFƒbƒN
+    // oEOAÌc`FbN
     const relayerBal = await ethPayoutWallet.getBalance();
     if (relayerBal.lt(payoutWei)) {
       const msg = "Relayer EOA has insufficient ETH";
@@ -255,25 +273,25 @@ app.post("/bridge-eth", async (req, res) => {
       return res.status(402).json({ error: msg });
     }
 
-    // Ethereum(L1) ‚Ì EOA ‚©‚ç‘—‹à
+    // Ethereum(L1)  EOA ç‘—
     const tx = await ethPayoutWallet.sendTransaction({ to: user, value: payoutWei });
-    await tx.wait(1); // 1 confirmation ˆÈã„§
+    await tx.wait(1); // 1 confirmation Èã„
 
     usedNonces.add(bnNonce.toString());
 
-    // NOTE: Š®—¹ƒtƒH[ƒ}ƒbƒg‚Íw¦’Ê‚èŒÅ’èBPGirls¨ETH ‚Å‚à ETH TxHash ‚Í‘—‹àƒgƒ‰ƒ“ƒUƒNƒVƒ‡ƒ“‚ğ‹LÚ‚µ‚Ü‚·B
+    // NOTE: tH[}bgÍwÊ‚Å’BPGirlsETH Å‚ ETH TxHash Í‘gUNVLÚ‚Ü‚B
     const content = completedMsg({
       user,
       from: "PGirls",
       to: "ETH",
-      amount: fmt(bnAmount, 18), // PGirls amountiFrom ‘¤‚Ì”—Êj
+      amount: fmt(bnAmount, 18), // PGirls amountiFrom ÌÊj
       ethTxHash: tx.hash,        // payout on ETH
-      relayerTx: tx.hash,        // destination relayer tx is“¯ˆê
+      relayerTx: tx.hash,        // destination relayer tx is
     });
     await postDiscord(content);
 
     console.log(
-      `? PGirls¨ETH payout | to=${user} | pgirlsWei=${bnAmount.toString()} | ethWei=${payoutWei.toString()} | tx=${tx.hash}`
+      `? PGirlsETH payout | to=${user} | pgirlsWei=${bnAmount.toString()} | ethWei=${payoutWei.toString()} | tx=${tx.hash}`
     );
     res.json({ success: true, txHash: tx.hash, amountWei: payoutWei.toString(), to: user });
   } catch (err) {
