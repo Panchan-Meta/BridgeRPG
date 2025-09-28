@@ -1,0 +1,8 @@
+{
+  "network": "pgirls",
+  "deployer": "0x2EC680be1B17DE7B0FFBE3a5E3aED9dDbF65ec44",
+  "contracts": {
+    "Bridge": "0x0Ff4c03C1f13B8f8BB48A68B527a54CDCa43c3F1",
+    "PGirlsToken": "0x654f25F2a36997C397Aad8a66D5a8783b6E61b9b"
+  }
+}

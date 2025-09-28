@@ -58,7 +58,7 @@ export default function Page() {
   const PGIRLS_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_PGIRLS_CONTRACT_ADDRESS || process.env.PGIRLS_CONTRACT_ADDRESS || "";
 
   const PGIRLS_RPC_URL = process.env.NEXT_PUBLIC_PGIRLSCHAIN_RPC_URL || process.env.PGIRLSCHAIN_RPC_URL || "https://rpc.rahabpunkaholicgirls.com";
-  const PGIRLS_EXPLORER = process.env.NEXT_PUBLIC_PGIRLS_EXPLORER_URL || "https://explorer.rahpunkaholicgirls.com";
+  const PGIRLS_EXPLORER = process.env.NEXT_PUBLIC_PGIRLS_EXPLORER_URL || "https://explorer.rahabpunkaholicgirls.com";
 
   const tokens = {
     ETH: { symbol: "ETH", network: "Ethereum", decimals: 18, chainId: ETH_CHAIN_ID, address: ethers.constants.AddressZero, bridgeAddress: ETH_BRIDGE_ADDRESS },

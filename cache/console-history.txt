@@ -1,0 +1,9 @@
+.exit
+});
+  constructorArguments: []
+  contract: "contracts/EIP712Bridge.sol:EIP712Bridge",
+  address: "0x0Ff4c03C1f13B8f8BB48A68B527a54CDCa43c3F1",
+await run("verify:verify", {
+art.abi.find(i => i.type === "constructor").inputs
+// constructor の入力定義を確認
+const art = await artifacts.readArtifact("contracts/EIP712Bridge.sol:EIP712Bridge");
